@@ -1,0 +1,40 @@
+version: "3.9"
+
+services:
+
+  news-app:
+    build: .
+    container_name: news-service
+    ports:
+      - "8085:8080"
+    depends_on:
+      - redis
+      - nitter
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+    networks:
+      - newsnet
+
+  redis:
+    image: redis:7
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - newsnet
+
+  nitter:
+    image: zedeus/nitter:latest
+    container_name: nitter
+    ports:
+      - "8084:8080"
+    networks:
+      - newsnet
+    restart: unless-stopped
+    volumes:
+      -  /home/kevin-m/IdeaProjects/news/news/src/main/java/com/pawamax/news/configs/nitter.conf:/src/nitter.conf:ro
+
+networks:
+  newsnet:
+    driver: bridge
+
