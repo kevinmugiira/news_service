@@ -1,9 +1,9 @@
-spring:
-  application:
-    name: news
-  redis:
-    host: redis
-    port: 6379
+#spring:
+#  application:
+#    name: news
+#  redis:
+#    host: redis
+#    port: 6379
 
 reddit:
   base-url: "https://www.reddit.com"

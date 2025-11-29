@@ -28,55 +28,45 @@ public class FeedAggregatorService {
      * @param feedRssUrls list of rss (or rsshub) URLs to convert via rss2json
      * @return Mono<JsonNode> that is an ObjectNode: { "items": [ ... ] }
      */
-    public Mono<JsonNode> aggregateFeeds(List<String> feedRssUrls) {
-        // fetch each feed as JsonNode using feedService.fetchFeed(rssUrl)
-        List<Mono<JsonNode>> monos = feedRssUrls.stream()
-                .map(feedService::fetchFeed) // each returns Mono<JsonNode> from rss2json.com
+    public Mono<JsonNode> aggregateFeeds(List<String> feedUrls) {
+        List<Mono<JsonNode>> monos = feedUrls.stream()
+                .map(feedService::fetchFeed)
                 .toList();
 
-        // Combine all Monos into a Flux of JsonNode
         return Flux.mergeSequential(monos)
                 .flatMapIterable(json -> {
-                    // rss2json returns "items" array; fallback if not present
+                    if (json == null) return List.<JsonNode>of();
+
+                    // RSS2JSON structure: "items" array
                     JsonNode items = json.get("items");
-                    if (items != null && items.isArray()) {
-                        return items;
-                    }
-                    // try common RSSHub structure: items may be top-level array
-                    if (json.isArray()) {
-                        return json;
-                    }
+                    if (items != null && items.isArray()) return items;
+
+                    // RSSHub JSON: usually top-level array
+                    if (json.isArray()) return json;
+
                     return List.<JsonNode>of();
                 })
                 .collectList()
                 .map(list -> {
-                    // Create combined ArrayNode
                     var mapper = com.fasterxml.jackson.databind.json.JsonMapper.builder().build();
                     ArrayNode combined = mapper.createArrayNode();
                     list.forEach(combined::add);
 
-                    // Sort combined by pubDate (if present), newest first
+                    // Sort by pubDate (newest first)
                     var sorted = StreamSupport.stream(combined.spliterator(), false)
                             .sorted(Comparator.comparing((JsonNode n) -> {
-                                        var dateNode = n.get("pubDate");
-                                        if (dateNode != null && dateNode.isTextual()) {
-                                            try {
-                                                return Instant.parse(dateNode.asText());
-                                            } catch (DateTimeParseException e) {
-                                                // try RFC822 style fallback
-                                                try {
-                                                    return Instant.parse(dateNode.asText());
-                                                } catch (Exception ex) {
-                                                    return Instant.EPOCH;
-                                                }
-                                            }
-                                        }
+                                var dateNode = n.get("pubDate");
+                                if (dateNode != null && dateNode.isTextual()) {
+                                    try {
+                                        return Instant.parse(dateNode.asText());
+                                    } catch (DateTimeParseException e) {
                                         return Instant.EPOCH;
-                                    }).reversed()
-                            )
+                                    }
+                                }
+                                return Instant.EPOCH;
+                            }).reversed())
                             .toList();
 
-                    // put sorted back into ArrayNode
                     ArrayNode out = mapper.createArrayNode();
                     sorted.forEach(out::add);
 
@@ -86,4 +76,69 @@ public class FeedAggregatorService {
                     return (JsonNode) root;
                 });
     }
+
+
+
+
+
+
+
+//    public Mono<JsonNode> aggregateFeeds(List<String> feedRssUrls) {
+//        // fetch each feed as JsonNode using feedService.fetchFeed(rssUrl)
+//        List<Mono<JsonNode>> monos = feedRssUrls.stream()
+//                .map(feedService::fetchFeed) // each returns Mono<JsonNode> from rss2json.com
+//                .toList();
+//
+//        // Combine all Monos into a Flux of JsonNode
+//        return Flux.mergeSequential(monos)
+//                .flatMapIterable(json -> {
+//                    // rss2json returns "items" array; fallback if not present
+//                    JsonNode items = json.get("items");
+//                    if (items != null && items.isArray()) {
+//                        return items;
+//                    }
+//                    // try common RSSHub structure: items may be top-level array
+//                    if (json.isArray()) {
+//                        return json;
+//                    }
+//                    return List.<JsonNode>of();
+//                })
+//                .collectList()
+//                .map(list -> {
+//                    // Create combined ArrayNode
+//                    var mapper = com.fasterxml.jackson.databind.json.JsonMapper.builder().build();
+//                    ArrayNode combined = mapper.createArrayNode();
+//                    list.forEach(combined::add);
+//
+//                    // Sort combined by pubDate (if present), newest first
+//                    var sorted = StreamSupport.stream(combined.spliterator(), false)
+//                            .sorted(Comparator.comparing((JsonNode n) -> {
+//                                        var dateNode = n.get("pubDate");
+//                                        if (dateNode != null && dateNode.isTextual()) {
+//                                            try {
+//                                                return Instant.parse(dateNode.asText());
+//                                            } catch (DateTimeParseException e) {
+//                                                // try RFC822 style fallback
+//                                                try {
+//                                                    return Instant.parse(dateNode.asText());
+//                                                } catch (Exception ex) {
+//                                                    return Instant.EPOCH;
+//                                                }
+//                                            }
+//                                        }
+//                                        return Instant.EPOCH;
+//                                    }).reversed()
+//                            )
+//                            .toList();
+//
+//                    // put sorted back into ArrayNode
+//                    ArrayNode out = mapper.createArrayNode();
+//                    sorted.forEach(out::add);
+//
+//                    ObjectNode root = mapper.createObjectNode();
+//                    root.set("items", out);
+//                    root.put("count", out.size());
+//                    return (JsonNode) root;
+//                });
+//    }
 }

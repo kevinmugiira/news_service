@@ -1,4 +1,4 @@
-package com.example.news.config;
+package com.pawamax.news.services;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

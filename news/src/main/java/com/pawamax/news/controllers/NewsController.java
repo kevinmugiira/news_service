@@ -13,6 +13,14 @@ import com.pawamax.news.services.RedditFeedService;
 import com.pawamax.news.services.TwitterFeedService;
 import com.pawamax.news.services.YouTubeFeedService;
 import com.pawamax.news.services.GeneralRssService;
+import java.util.List;
+import java.util.Arrays;
+import java.util.stream.Collectors;
+
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.PathVariable;
+
+import com.fasterxml.jackson.databind.JsonNode;
 
 @RestController
 @RequiredArgsConstructor
@@ -43,22 +51,22 @@ public class NewsController {
 
 
     @GetMapping("/twitter/{username}")
-    public Mono<String> twitter(@PathVariable String username) {
+    public Mono<JsonNode> twitter(@PathVariable String username) {
         return twitterService.getUserTweets(username);
     }
 
     @GetMapping("/reddit/{sub}")
-    public Mono<String> reddit(@PathVariable String sub) {
+    public Mono<JsonNode> reddit(@PathVariable String sub) {
         return redditService.getSubredditFeed(sub);
     }
 
     @GetMapping("/youtube/{channelId}")
-    public Mono<String> youtube(@PathVariable String channelId) {
+    public Mono<JsonNode> youtube(@PathVariable String channelId) {
         return youtubeService.getChannelFeed(channelId);
     }
 
     @GetMapping("/rss")
-    public Mono<String> rss(@RequestParam String url) {
+    public Mono<JsonNode> rss(@RequestParam String url) {
         return generalRssService.getFeed(url);
     }
 }
