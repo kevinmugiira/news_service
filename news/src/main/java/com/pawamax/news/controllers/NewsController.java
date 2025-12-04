@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PathVariable;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.pawamax.news.services.CacheService;
 
 @RestController
 @RequiredArgsConstructor
@@ -28,6 +29,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 public class NewsController {
 
     private final NewsAggregatorService newsAggregatorService;
+    private final CacheService cacheService;
     private final FeedAggregatorService aggregator;
     private final TwitterFeedService twitterService;
     private final RedditFeedService redditService;
@@ -36,37 +38,60 @@ public class NewsController {
 
 
     @GetMapping("/all")
-    public Mono<JsonNode> all(@RequestParam(name = "feeds") String feedsCsv) {
+    public Mono<JsonNode> all(
+            @RequestParam(name = "feeds") String feedsCsv,
+            @RequestParam(name = "refresh", defaultValue = "false") boolean refresh
+    ) {
+
         List<String> feeds = Arrays.stream(feedsCsv.split(","))
                 .map(String::trim)
                 .filter(s -> !s.isEmpty())
                 .collect(Collectors.toList());
-        return aggregator.aggregateFeeds(feeds);
+
+        // initialize feeds list in cache
+        cacheService.setFeedList(feeds);
+
+        if (refresh) {
+            return cacheService.refreshNow();
+        }
+
+        return cacheService.getCachedNews();
     }
 
-    @GetMapping
-    public Mono<String> getNews() {
-        return newsAggregatorService.getAllNews();
-    }
 
 
-    @GetMapping("/twitter/{username}")
-    public Mono<JsonNode> twitter(@PathVariable String username) {
-        return twitterService.getUserTweets(username);
-    }
+//    @GetMapping("/all")
+//    public Mono<JsonNode> all(@RequestParam(name = "feeds") String feedsCsv) {
+//        List<String> feeds = Arrays.stream(feedsCsv.split(","))
+//                .map(String::trim)
+//                .filter(s -> !s.isEmpty())
+//                .collect(Collectors.toList());
+//        return aggregator.aggregateFeeds(feeds);
+//    }
 
-    @GetMapping("/reddit/{sub}")
-    public Mono<JsonNode> reddit(@PathVariable String sub) {
-        return redditService.getSubredditFeed(sub);
-    }
-
-    @GetMapping("/youtube/{channelId}")
-    public Mono<JsonNode> youtube(@PathVariable String channelId) {
-        return youtubeService.getChannelFeed(channelId);
-    }
-
-    @GetMapping("/rss")
-    public Mono<JsonNode> rss(@RequestParam String url) {
-        return generalRssService.getFeed(url);
-    }
+//    @GetMapping
+//    public Mono<String> getNews() {
+//        return newsAggregatorService.getAllNews();
+//    }
+//
+//
+//    @GetMapping("/twitter/{username}")
+//    public Mono<JsonNode> twitter(@PathVariable String username) {
+//        return twitterService.getUserTweets(username);
+//    }
+//
+//    @GetMapping("/reddit/{sub}")
+//    public Mono<JsonNode> reddit(@PathVariable String sub) {
+//        return redditService.getSubredditFeed(sub);
+//    }
+//
+//    @GetMapping("/youtube/{channelId}")
+//    public Mono<JsonNode> youtube(@PathVariable String channelId) {
+//        return youtubeService.getChannelFeed(channelId);
+//    }
+//
+//    @GetMapping("/rss")
+//    public Mono<JsonNode> rss(@RequestParam String url) {
+//        return generalRssService.getFeed(url);
+//    }
 }
