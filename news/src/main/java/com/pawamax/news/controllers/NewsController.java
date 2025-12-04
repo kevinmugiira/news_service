@@ -49,12 +49,14 @@ public class NewsController {
                 .collect(Collectors.toList());
 
         // initialize feeds list in cache
-        cacheService.setFeedList(feeds);
+        cacheService.updateFeedListIfNecessary(feeds);
 
         if (refresh) {
-            return cacheService.refreshNow();
+            System.out.println("Manual refresh triggered...");
+            return cacheService.refreshNow(true);
         }
 
+        System.out.println("Returning cached news...");
         return cacheService.getCachedNews();
     }
 

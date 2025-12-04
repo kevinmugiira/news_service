@@ -16,39 +16,76 @@ public class CacheService {
 
     private final FeedAggregatorService aggregator;
     private final AtomicReference<JsonNode> cachedNews = new AtomicReference<>();
-    private List<String> feedList;
+    private final AtomicReference<List<String>> feedList = new AtomicReference<>();
+
+
+    // called every request, but only updates feeds when changed
+    public void updateFeedListIfNecessary(List<String> newFeeds) {
+        List<String> old = feedList.get();
+        if (old == null || !old.equals(newFeeds)) {
+            feedList.set(newFeeds);
+            cachedNews.set(null);  // clear cache when feeds change
+        }
+    }
+
 
     /** Initialize list of feeds once */
-    public void setFeedList(List<String> feeds) {
-        this.feedList = feeds;
-    }
+//    public void setFeedList(List<String> feeds) {
+//        this.feedList = feeds;
+//    }
 
     /** Return cached news or fetch immediately if cache is cold */
     public Mono<JsonNode> getCachedNews() {
-        JsonNode node = cachedNews.get();
-        if (node != null) {
-            return Mono.just(node);
+        JsonNode existing = cachedNews.get();
+        if (existing != null) {
+            return Mono.just(existing);
         }
-        return refreshNow();  // first time → warm-up
+        return refreshNow();
     }
+//    public Mono<JsonNode> getCachedNews() {
+//        JsonNode node = cachedNews.get();
+//        if (node != null) {
+//            return Mono.just(node);
+//        }
+//        return refreshNow();  // first time → warm-up
+//    }
 
     /** Manually force refresh */
+    public Mono<JsonNode> refreshNow(boolean force) {
+        if (force) cachedNews.set(null);
+        return refreshNow();
+    }
     public Mono<JsonNode> refreshNow() {
-        if (feedList == null || feedList.isEmpty()) {
-            return Mono.error(new IllegalStateException("Feed list not initialized"));
+        List<String> feeds = feedList.get();
+        if (feeds == null || feeds.isEmpty()) {
+            return Mono.error(new IllegalStateException("Feed list not set"));
         }
 
-        return aggregator.aggregateFeeds(feedList)
-                .doOnNext(cachedNews::set);
+        System.out.println("Refreshing NOW…");
+
+        return aggregator.aggregateFeeds(feeds)
+                .map(news -> {
+                    cachedNews.set(news);
+                    return news;
+                });
     }
+//    public Mono<JsonNode> refreshNow() {
+//        if (feedList == null || feedList.isEmpty()) {
+//            return Mono.error(new IllegalStateException("Feed list not initialized"));
+//        }
+//
+//        return aggregator.aggregateFeeds(feedList)
+//                .doOnNext(cachedNews::set);
+//    }
 
     /** Auto-refresh every 10 minutes */
     @Scheduled(fixedRate = 10 * 60 * 1000)
     public void refreshScheduled() {
-        if (feedList == null || feedList.isEmpty()) return;
+        List<String> feeds = feedList.get();
+        if (feeds == null || feeds.isEmpty()) return;
 
         System.out.println("[NewsCache] Auto-refreshing news...");
-        aggregator.aggregateFeeds(feedList)
+        aggregator.aggregateFeeds(feeds)
                 .doOnNext(cachedNews::set)
                 .subscribe(
                         ok -> System.out.println("[NewsCache] Auto-refresh complete."),
